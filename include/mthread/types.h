@@ -10,8 +10,10 @@ MTHREAD_BEGIN_DECLS
 
 #define MTHREAD_SIZEOF_MTHREAD (24U)
 #define MTHREAD_SIZEOF_MTHREAD_ATTR (32U)
-#define MTHREAD_SIZEOF_MTHREAD_MUTEX (56U)
+#define MTHREAD_SIZEOF_MTHREAD_MUTEX (48U)
 #define MTHREAD_SIZEOF_MTHREAD_MUTEXATTR (12U)
+#define MTHREAD_SIZEOF_MTHREAD_COND (56U)
+#define MTHREAD_SIZEOF_MTHREAD_CONDATTR (8U)
 
 typedef union mthread
 {
@@ -33,6 +35,16 @@ typedef union mthread_mutexattr
 {
 	_Alignas(int) signed char size[MTHREAD_SIZEOF_MTHREAD_MUTEXATTR];
 } mthread_mutexattr_t;
+
+typedef union mthread_cond
+{
+	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_COND];
+} mthread_cond_t;
+
+typedef union mthread_condattr
+{
+	_Alignas(int) signed char size[MTHREAD_SIZEOF_MTHREAD_CONDATTR];
+} mthread_condattr_t;
 
 typedef void * mthread_handle_t;
 typedef int32_t mthread_result_t;

@@ -5,6 +5,8 @@
 #include "attr.h"
 #include "types.h"
 
+#include <time.h>
+
 MTHREAD_BEGIN_DECLS
 
 MTHREAD_API
@@ -117,6 +119,50 @@ mthread_result_t mthread_mutexattr_setrobust(mthread_mutexattr_t *attr,
 MTHREAD_API
 mthread_result_t mthread_mutexattr_getrobust(mthread_mutexattr_t *MTHREAD_RESTRICT attr,
 					     int32_t *MTHREAD_RESTRICT robustness);
+
+MTHREAD_API
+mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
+				   mthread_condattr_t *cond_attr);
+
+MTHREAD_API
+mthread_result_t mthread_cond_signal(mthread_cond_t *cond);
+
+MTHREAD_API
+mthread_result_t mthread_cond_broadcast(mthread_cond_t *cond);
+
+MTHREAD_API
+mthread_result_t mthread_cond_wait(mthread_cond_t *MTHREAD_RESTRICT cond,
+				   mthread_mutex_t * MTHREAD_RESTRICT mutex);
+
+MTHREAD_API
+mthread_result_t mthread_cond_timedwait(mthread_cond_t *MTHREAD_RESTRICT cond,
+					mthread_mutex_t *MTHREAD_RESTRICT mutex,
+					const struct timespec *MTHREAD_RESTRICT abstime);
+
+MTHREAD_API
+mthread_result_t mthread_cond_destroy(mthread_cond_t *cond);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_init(mthread_condattr_t *attr);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_destroy(mthread_condattr_t *attr);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_setpshared(mthread_condattr_t *attr,
+					     int32_t pshared);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_getpshared(const mthread_condattr_t *MTHREAD_RESTRICT attr,
+					     int32_t *MTHREAD_RESTRICT pshared);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_setclock(mthread_condattr_t *attr,
+					   int32_t clock_id);
+
+MTHREAD_API
+mthread_result_t mthread_condattr_getclock(const mthread_condattr_t *MTHREAD_RESTRICT attr,
+					   int32_t *MTHREAD_RESTRICT clock_id);
 
 MTHREAD_END_DECLS
 

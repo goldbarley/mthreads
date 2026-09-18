@@ -43,6 +43,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 if (UNIX)
 	target_sources(${PROJECT_NAME} PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src/mthread_posix/mthread_cond.c
 		${CMAKE_CURRENT_SOURCE_DIR}/src/mthread_posix/mthread_mutex.c
 		${CMAKE_CURRENT_SOURCE_DIR}/src/mthread_posix/mthread_posix.c)
 	target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)

@@ -19,15 +19,20 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
 
 	pthread_mutexattr_t pattr;
-	int32_t error = pthread_mutexattr_init(&pattr);
-	if (error)
-		return error;
+	pthread_mutexattr_t *pattr_ptr = NULL;
+	int32_t error = MTHREAD_SUCCESS;
 
 	const struct mthread_mutexattr_s *attrib = NULL;
 
 	if (attr)
 	{
-		attrib = (const struct mthread_mutexattr_s *) attr;
+		MTHREAD_CAST_NEW(attr, struct mthread_mutexattr_s *, attrib);
+
+		error = pthread_mutexattr_init(&pattr);
+		if (error)
+			return error;
+
+		pattr_ptr = &pattr;
 
 		int32_t attr_field = 0;
 		switch(attrib->type)
@@ -47,7 +52,7 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 
 		error = pthread_mutexattr_settype(&pattr, attr_field);
 		if (error)
-			return error;
+			goto cleanup;
 
 		switch(attrib->pshared)
 		{
@@ -58,12 +63,12 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 				attr_field = PTHREAD_PROCESS_SHARED;
 				break;
 			default:
-				return MTHREAD_FAILURE;
+				goto cleanup;
 		}
 
 		error = pthread_mutexattr_setpshared(&pattr, attr_field);
 		if (error)
-			return error;
+			goto cleanup;
 
 		switch(attrib->robustness)
 		{
@@ -79,14 +84,19 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 
 		error = pthread_mutexattr_setrobust(&pattr, attr_field);
 		if (error)
-			return error;
+			goto cleanup;
 	}
 
-	pthread_mutex_init(&mtx->handle, &pattr);
+	error = pthread_mutex_init(&mtx->handle, pattr_ptr);
+	if (error)
+		goto cleanup;
 
 	mtx->init = MTHREAD_TRUE;
 
-	return MTHREAD_SUCCESS;
+	cleanup:
+	pthread_mutexattr_destroy(pattr_ptr);
+
+	MTHREAD_COND_RET(error);
 }
 
 MTHREAD_API

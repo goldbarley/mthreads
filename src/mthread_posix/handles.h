@@ -28,7 +28,6 @@ MTHREAD_ASSERT_SIZE_N_ALIGNMENT(struct mthread_attr_s, mthread_attr_t);
 struct mthread_mutex_s
 {
 	pthread_mutex_t handle;
-	mthread_flags_t flags;
 	mthread_bool_t init;
 };
 MTHREAD_ASSERT_SIZE_N_ALIGNMENT(struct mthread_mutex_s, mthread_mutex_t);
@@ -40,6 +39,20 @@ struct mthread_mutexattr_s
 	int32_t robustness;
 };
 MTHREAD_ASSERT_SIZE_N_ALIGNMENT(struct mthread_mutexattr_s, mthread_mutexattr_t);
+
+struct mthread_cond_s
+{
+	pthread_cond_t handle;
+	mthread_bool_t init;
+};
+MTHREAD_ASSERT_SIZE_N_ALIGNMENT(struct mthread_cond_s, mthread_cond_t);
+
+struct mthread_condattr_s
+{
+	int32_t pshared;
+	int32_t clock_id;
+};
+MTHREAD_ASSERT_SIZE_N_ALIGNMENT(struct mthread_condattr_s, mthread_condattr_t);
 
 MTHREAD_END_DECLS
 
