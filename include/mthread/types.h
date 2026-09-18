@@ -1,13 +1,38 @@
 #ifndef MTHREAD_TYPES_H_
 #define MTHREAD_TYPES_H_ 1
 
+#include "common.h"
+
+MTHREAD_BEGIN_DECLS
+
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct mthread mthread_t;
-typedef struct mthread_attr mthread_attr_t;
-typedef struct mthread_mutex mthread_mutex_t;
-typedef struct mthread_mutexattr mthread_mutexattr_t;
+#define MTHREAD_SIZEOF_MTHREAD (24U)
+#define MTHREAD_SIZEOF_MTHREAD_ATTR (32U)
+#define MTHREAD_SIZEOF_MTHREAD_MUTEX (56U)
+#define MTHREAD_SIZEOF_MTHREAD_MUTEXATTR (12U)
+
+typedef union mthread
+{
+	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD];
+} mthread_t;
+
+typedef union mthread_attr
+{
+	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_ATTR];
+
+} mthread_attr_t;
+
+typedef union mthread_mutex
+{
+	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_MUTEX];
+} mthread_mutex_t;
+
+typedef union mthread_mutexattr
+{
+	_Alignas(int) signed char size[MTHREAD_SIZEOF_MTHREAD_MUTEXATTR];
+} mthread_mutexattr_t;
 
 typedef void * mthread_handle_t;
 typedef int32_t mthread_result_t;
@@ -15,7 +40,9 @@ typedef int32_t mthread_result_t;
 enum
 {
 	MTHREAD_SUCCESS = 0,
-	MTHREAD_FAILURE = -1
+	MTHREAD_FAILURE = -1,
+	MTHREAD_ERROR_NOT_INITIALIZED = -2,
+	MTHREAD_ERROR_INVALID_ARGUMENT = -3
 };
 
 /* Detach state. */
@@ -72,5 +99,7 @@ typedef void *(*mthread_routine_t)(void *);
 #define MTHREAD_TRUE (1)
 
 typedef uint8_t mthread_bool_t;
+
+MTHREAD_END_DECLS
 
 #endif /* MTHREAD_TYPES_H_ */

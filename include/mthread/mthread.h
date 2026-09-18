@@ -1,17 +1,11 @@
 #ifndef MTHREAD_H_
 #define MTHREAD_H_ 1
 
+#include "common.h"
 #include "attr.h"
 #include "types.h"
 
-#ifdef _WIN32
-#include "mthread_win32/mthread_win32.h"
-#else
-#include "mthread_posix/mthread_posix.h"
-#endif /* _WIN32 */
-
-MTHREAD_API
-mthread_handle_t mthread_get_thread_handle(mthread_t *thread);
+MTHREAD_BEGIN_DECLS
 
 MTHREAD_API
 mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
@@ -78,7 +72,7 @@ mthread_result_t mthread_attr_setguardsize(mthread_attr_t *attr,
 					   size_t guardsize);
 
 MTHREAD_API
-mthread_result_t mthread_attr_getguradsize(mthread_attr_t *MTHREAD_RESTRICT attr,
+mthread_result_t mthread_attr_getguardsize(mthread_attr_t *MTHREAD_RESTRICT attr,
 					   size_t *MTHREAD_RESTRICT guardsize);
 
 MTHREAD_API
@@ -123,5 +117,7 @@ mthread_result_t mthread_mutexattr_setrobust(mthread_mutexattr_t *attr,
 MTHREAD_API
 mthread_result_t mthread_mutexattr_getrobust(mthread_mutexattr_t *MTHREAD_RESTRICT attr,
 					     int32_t *MTHREAD_RESTRICT robustness);
+
+MTHREAD_END_DECLS
 
 #endif /* MTHREAD_H_ */

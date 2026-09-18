@@ -1,6 +1,10 @@
 #ifndef MTHREAD_ATTR_H_
 #define MTHREAD_ATTR_H_ 1
 
+#include "common.h"
+
+MTHREAD_BEGIN_DECLS
+
 #if defined(_MSC_VER)
 #ifdef MTHREAD_LIB_STATIC
 #define MTHREAD_API
@@ -31,5 +35,6 @@
 #define MTHREAD_RESTRICT restrict
 #endif /* __cplusplus */
 
+MTHREAD_END_DECLS
 
 #endif /* MTHREAD_ATTR_H_ */
