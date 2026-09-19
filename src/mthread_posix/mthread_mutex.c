@@ -18,7 +18,7 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 
 	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
 
-	pthread_mutexattr_t pattr;
+	pthread_mutexattr_t pattr = {0};
 	pthread_mutexattr_t *pattr_ptr = NULL;
 	int32_t error = MTHREAD_SUCCESS;
 

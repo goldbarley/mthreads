@@ -21,7 +21,7 @@ mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
 	if (cnd->init)
 		return MTHREAD_FAILURE;
 
-	pthread_condattr_t pattr;
+	pthread_condattr_t pattr = {0};
 
 	int32_t error = MTHREAD_SUCCESS;
 
