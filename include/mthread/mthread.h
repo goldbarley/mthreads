@@ -10,7 +10,7 @@
 MTHREAD_BEGIN_DECLS
 
 MTHREAD_API
-mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
+mthread_result_t mthread_create(mthread_t **MTHREAD_RESTRICT thread,
 				const mthread_attr_t *MTHREAD_RESTRICT attr,
 				mthread_routine_t start_routine,
 				void *MTHREAD_RESTRICT arg);
@@ -21,6 +21,9 @@ mthread_result_t mthread_join(mthread_t *MTHREAD_RESTRICT thread,
 
 MTHREAD_API
 mthread_result_t mthread_detach(mthread_t *thread);
+
+MTHREAD_API
+void mthread_destroy(mthread_t *thread);
 
 MTHREAD_API
 void mthread_exit(void *retval);
@@ -38,7 +41,7 @@ MTHREAD_API
 mthread_handle_t mthread_self(void);
 
 MTHREAD_API
-mthread_result_t mthread_attr_init(mthread_attr_t *attr);
+mthread_result_t mthread_attr_init(mthread_attr_t **attr);
 
 MTHREAD_API
 mthread_result_t mthread_attr_destroy(mthread_attr_t *attr);
@@ -78,7 +81,7 @@ mthread_result_t mthread_attr_getguardsize(mthread_attr_t *MTHREAD_RESTRICT attr
 					   size_t *MTHREAD_RESTRICT guardsize);
 
 MTHREAD_API
-mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
+mthread_result_t mthread_mutex_init(mthread_mutex_t **MTHREAD_RESTRICT mutex,
 				    const mthread_mutexattr_t *MTHREAD_RESTRICT attr);
 
 MTHREAD_API
@@ -94,7 +97,7 @@ MTHREAD_API
 mthread_result_t mthread_mutex_destroy(mthread_mutex_t *mutex);
 
 MTHREAD_API
-mthread_result_t mthread_mutexattr_init(mthread_mutexattr_t *attr);
+mthread_result_t mthread_mutexattr_init(mthread_mutexattr_t **attr);
 
 MTHREAD_API
 mthread_result_t mthread_mutexattr_settype(mthread_mutexattr_t *attr,
@@ -121,7 +124,7 @@ mthread_result_t mthread_mutexattr_getrobust(mthread_mutexattr_t *MTHREAD_RESTRI
 					     int32_t *MTHREAD_RESTRICT robustness);
 
 MTHREAD_API
-mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
+mthread_result_t mthread_cond_init(mthread_cond_t **MTHREAD_RESTRICT cond,
 				   mthread_condattr_t *cond_attr);
 
 MTHREAD_API
@@ -143,7 +146,7 @@ MTHREAD_API
 mthread_result_t mthread_cond_destroy(mthread_cond_t *cond);
 
 MTHREAD_API
-mthread_result_t mthread_condattr_init(mthread_condattr_t *attr);
+mthread_result_t mthread_condattr_init(mthread_condattr_t **attr);
 
 MTHREAD_API
 mthread_result_t mthread_condattr_destroy(mthread_condattr_t *attr);

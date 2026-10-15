@@ -7,19 +7,18 @@
 #include "mthread/mthread.h"
 
 #include <pthread.h>
-#include <string.h>
+#include <stdlib.h>
 
 MTHREAD_API
-mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
+mthread_result_t mthread_cond_init(mthread_cond_t **MTHREAD_RESTRICT cond,
 				   mthread_condattr_t *cond_attr)
 {
 	if (!cond)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(cond, struct mthread_cond_s *, cnd);
-
-	if (cnd->init)
-		return MTHREAD_FAILURE;
+	mthread_cond_t *cnd = malloc(sizeof(struct mthread_cond));
+	if (!cnd)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
 
 	pthread_condattr_t pattr = {0};
 
@@ -27,14 +26,12 @@ mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
 
 	if (cond_attr)
 	{
-		MTHREAD_CAST_NEW(cond_attr, struct mthread_condattr_s *, cnd_attr);
-
 		error = pthread_condattr_init(&pattr);
 		if (error)
 			return error;
 
 		int32_t attr_field = 0;
-		switch (cnd_attr->pshared)
+		switch (cond_attr->pshared)
 		{
 			case MTHREAD_PROCESS_PRIVATE:
 				attr_field = PTHREAD_PROCESS_PRIVATE;
@@ -50,7 +47,7 @@ mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
 		if (error)
 			goto cleanup;
 
-		error = pthread_condattr_setclock(&pattr, cnd_attr->clock_id);
+		error = pthread_condattr_setclock(&pattr, cond_attr->clock_id);
 		if (error)
 			goto cleanup;
 	}
@@ -61,10 +58,12 @@ mthread_result_t mthread_cond_init(mthread_cond_t *MTHREAD_RESTRICT cond,
 
 	cnd->init = MTHREAD_TRUE;
 
+	*cond = cnd;
+
 	cleanup:
 	pthread_condattr_destroy(&pattr);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -73,7 +72,7 @@ mthread_result_t mthread_cond_signal(mthread_cond_t *cond)
 	if (!cond)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	return pthread_cond_signal(&((struct mthread_cond_s *) cond)->handle);
+	return pthread_cond_signal(&cond->handle);
 }
 
 MTHREAD_API
@@ -82,7 +81,7 @@ mthread_result_t mthread_cond_broadcast(mthread_cond_t *cond)
 	if (!cond)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	return pthread_cond_broadcast(&((struct mthread_cond_s *) cond)->handle);
+	return pthread_cond_broadcast(&cond->handle);
 }
 
 MTHREAD_API
@@ -92,8 +91,7 @@ mthread_result_t mthread_cond_wait(mthread_cond_t *MTHREAD_RESTRICT cond,
 	if (!cond || !mutex)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	return pthread_cond_wait(&((struct mthread_cond_s *) cond)->handle,
-				 &((struct mthread_mutex_s *) mutex)->handle);
+	return pthread_cond_wait(&cond->handle, &mutex->handle);
 }
 
 MTHREAD_API
@@ -104,8 +102,7 @@ mthread_result_t mthread_cond_timedwait(mthread_cond_t *MTHREAD_RESTRICT cond,
 	if (!cond || !mutex || !abstime)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	return pthread_cond_timedwait(&((struct mthread_cond_s *) cond)->handle,
-				      &((struct mthread_mutex_s *) mutex)->handle,
+	return pthread_cond_timedwait(&cond->handle, &mutex->handle,
 				      abstime);
 }
 
@@ -115,16 +112,21 @@ mthread_result_t mthread_cond_destroy(mthread_cond_t *cond)
 	if (!cond)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	return pthread_cond_destroy(&((struct mthread_cond_s *) cond)->handle);
+	int32_t error = pthread_cond_destroy(&cond->handle);
+	free(cond);
+
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
-mthread_result_t mthread_condattr_init(mthread_condattr_t *attr)
+mthread_result_t mthread_condattr_init(mthread_condattr_t **attr)
 {
 	if (!attr)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	memset(attr, 0, MTHREAD_SIZEOF_MTHREAD_CONDATTR);
+	*attr = calloc(1, sizeof(struct mthread_condattr));
+	if (!attr)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
 
 	return MTHREAD_SUCCESS;
 }
@@ -132,6 +134,11 @@ mthread_result_t mthread_condattr_init(mthread_condattr_t *attr)
 MTHREAD_API
 mthread_result_t mthread_condattr_destroy(mthread_condattr_t *attr)
 {
+	if (!attr)
+		return MTHREAD_ERROR_INVALID_ARGUMENT;
+
+	free(attr);
+
 	return MTHREAD_SUCCESS;
 }
 
@@ -146,7 +153,7 @@ mthread_result_t mthread_condattr_setpshared(mthread_condattr_t *attr,
 	{
 		case MTHREAD_PROCESS_PRIVATE:
 		case MTHREAD_PROCESS_SHARED:
-			((struct mthread_condattr_s *) attr)->pshared = pshared;
+			attr->pshared = pshared;
 			break;
 		default:
 			return MTHREAD_ERROR_INVALID_ARGUMENT;
@@ -162,7 +169,7 @@ mthread_result_t mthread_condattr_getpshared(const mthread_condattr_t *MTHREAD_R
 	if (!attr || !pshared)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	*pshared = ((struct mthread_condattr_s *) attr)->pshared;
+	*pshared = attr->pshared;
 
 	return MTHREAD_SUCCESS;
 }
@@ -174,7 +181,7 @@ mthread_result_t mthread_condattr_setclock(mthread_condattr_t *attr,
 	if (!attr)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	((struct mthread_condattr_s *) attr)->clock_id = clock_id;
+	attr->clock_id = clock_id;
 
 	return MTHREAD_SUCCESS;
 }
@@ -186,7 +193,7 @@ mthread_result_t mthread_condattr_getclock(const mthread_condattr_t *MTHREAD_RES
 	if (!attr || !clock_id)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	*clock_id = ((struct mthread_condattr_s *) attr)->clock_id;
+	*clock_id = attr->clock_id;
 
 	return MTHREAD_SUCCESS;
 }

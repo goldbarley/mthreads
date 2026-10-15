@@ -35,6 +35,12 @@ MTHREAD_BEGIN_DECLS
 #define MTHREAD_RESTRICT restrict
 #endif /* __cplusplus */
 
+#if defined(__GNUC__) || (__clang__)
+#define MT_LEAF __attribute__((__leaf__))
+#else
+#define MT_LEAF
+#endif /* Compilers */
+
 MTHREAD_END_DECLS
 
 #endif /* MTHREAD_ATTR_H_ */

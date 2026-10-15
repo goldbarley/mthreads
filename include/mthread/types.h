@@ -15,38 +15,15 @@ MTHREAD_BEGIN_DECLS
 #define MTHREAD_SIZEOF_MTHREAD_COND (56U)
 #define MTHREAD_SIZEOF_MTHREAD_CONDATTR (8U)
 
-typedef union mthread
-{
-	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD];
-} mthread_t;
 
-typedef union mthread_attr
-{
-	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_ATTR];
+typedef struct mthread mthread_t;
+typedef struct mthread_attr mthread_attr_t;
+typedef struct mthread_mutex mthread_mutex_t;
+typedef struct mthread_mutexattr mthread_mutexattr_t;
+typedef struct mthread_cond mthread_cond_t;
+typedef struct mthread_condattr mthread_condattr_t;
 
-} mthread_attr_t;
-
-typedef union mthread_mutex
-{
-	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_MUTEX];
-} mthread_mutex_t;
-
-typedef union mthread_mutexattr
-{
-	_Alignas(int) signed char size[MTHREAD_SIZEOF_MTHREAD_MUTEXATTR];
-} mthread_mutexattr_t;
-
-typedef union mthread_cond
-{
-	_Alignas(void *) signed char size[MTHREAD_SIZEOF_MTHREAD_COND];
-} mthread_cond_t;
-
-typedef union mthread_condattr
-{
-	_Alignas(int) signed char size[MTHREAD_SIZEOF_MTHREAD_CONDATTR];
-} mthread_condattr_t;
-
-typedef void * mthread_handle_t;
+typedef uintptr_t mthread_handle_t;
 typedef int32_t mthread_result_t;
 
 enum
@@ -103,14 +80,14 @@ typedef enum mthread_status
 	MTHREAD_STATUS_MAX_VALUE = 0x7FFFFFFF
 } mthread_status_t;
 
-typedef uint64_t mthread_flags_t;
+typedef uint32_t mthread_flags_t;
 
 typedef void *(*mthread_routine_t)(void *);
 
 #define MTHREAD_FALSE (0)
 #define MTHREAD_TRUE (1)
 
-typedef uint8_t mthread_bool_t;
+typedef unsigned char mthread_bool_t;
 
 MTHREAD_END_DECLS
 

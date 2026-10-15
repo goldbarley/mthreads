@@ -4,6 +4,7 @@
 #include "mthread/mthread.h"
 #include "mthread/types.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -15,12 +16,12 @@ MTHREAD_API
 mthread_handle_t mthread_get_platform_handle(mthread_t *thread)
 {
 	if (!thread)
-		return NULL;
-	return (mthread_handle_t)((uintptr_t) thread->size);
+		return (mthread_handle_t) NULL;
+	return (mthread_handle_t)(thread->handle);
 }
 
 MTHREAD_API
-mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
+mthread_result_t mthread_create(mthread_t **MTHREAD_RESTRICT thread,
 				const mthread_attr_t *MTHREAD_RESTRICT attr,
 				mthread_routine_t start_routine,
 				void *MTHREAD_RESTRICT arg)
@@ -28,7 +29,10 @@ mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
 	if (!thread || !start_routine)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(thread, struct mthread_s *, thrd);
+	mthread_t *thrd = malloc(sizeof(struct mthread));
+	if (!thrd)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
+
 
 	thrd->routine = start_routine;
 	mthread_status_t status = MTHREAD_STATUS_ACTIVE;
@@ -38,11 +42,10 @@ mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
 
 	if (attr)
 	{
-		MTHREAD_CAST_NEW(attr, const struct mthread_attr_s *, attrib);
 
-		int detach = (attrib->detachstate == MTHREAD_CREATE_DETACHED) ?
+		int detach = (attr->detachstate == MTHREAD_CREATE_DETACHED) ?
 			PTHREAD_CREATE_DETACHED :PTHREAD_CREATE_JOINABLE;
-		if (attrib->detachstate == MTHREAD_CREATE_DETACHED)
+		if (attr->detachstate == MTHREAD_CREATE_DETACHED)
 		{
 			status = MTHREAD_STATUS_DETACHED;
 			detach = PTHREAD_CREATE_DETACHED;
@@ -52,15 +55,15 @@ mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
 
 		pthread_attr_setdetachstate(&pattr, detach);
 
-		if (attrib->stacksize)
-			pthread_attr_setstacksize(&pattr, attrib->stacksize);
+		if (attr->stacksize)
+			pthread_attr_setstacksize(&pattr, attr->stacksize);
 
-		if (attrib->stackaddr)
-			pthread_attr_setstack(&pattr, attrib->stackaddr,
-					      attrib->stacksize);
+		if (attr->stackaddr)
+			pthread_attr_setstack(&pattr, attr->stackaddr,
+					      attr->stacksize);
 
-		if (attrib->guardsize)
-			pthread_attr_setguardsize(&pattr, attrib->guardsize);
+		if (attr->guardsize)
+			pthread_attr_setguardsize(&pattr, attr->guardsize);
 	}
 
 	pthread_mutex_t a = PTHREAD_MUTEX_INITIALIZER;
@@ -74,8 +77,11 @@ mthread_result_t mthread_create(mthread_t *MTHREAD_RESTRICT thread,
 	if (error)
 	{
 		thrd->status = MTHREAD_STATUS_INACTIVE;
+		free(thrd);
 		return error;
 	}
+
+	*thread = thrd;
 
 	return MTHREAD_SUCCESS;
 }
@@ -87,20 +93,18 @@ mthread_result_t mthread_join(mthread_t *MTHREAD_RESTRICT thread,
 	if (!thread)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	struct mthread_s *thrd = (struct mthread_s *) thread;
-
-	if (thrd->status == MTHREAD_STATUS_JOINED ||
-		thrd->status == MTHREAD_STATUS_DETACHED)
+	if (thread->status == MTHREAD_STATUS_JOINED ||
+		thread->status == MTHREAD_STATUS_DETACHED)
 		return MTHREAD_FAILURE;
 
-	int32_t error = pthread_join(thrd->handle, retval);
-	if (!error)
-	{
-		thrd->status = MTHREAD_STATUS_JOINED;
-		return MTHREAD_SUCCESS;
-	}
+	int32_t error = pthread_join(thread->handle, retval);
+	if (error)
+		return error;
 
-	return error;
+	thread->status = MTHREAD_STATUS_JOINED;
+	free(thread);
+
+	return MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -109,38 +113,47 @@ mthread_result_t mthread_detach(mthread_t *thread)
 	if (!thread)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(thread, struct mthread_s *, thrd);
-
-	if (thrd->status == MTHREAD_STATUS_JOINED ||
-		thrd->status == MTHREAD_STATUS_DETACHED)
+	if (thread->status == MTHREAD_STATUS_JOINED ||
+		thread->status == MTHREAD_STATUS_DETACHED)
 		return MTHREAD_FAILURE;
 
-	mthread_status_t prev = thrd->status;
-	thrd->status = MTHREAD_STATUS_DETACHED;
+	mthread_status_t prev = thread->status;
+	thread->status = MTHREAD_STATUS_DETACHED;
 
-	int32_t error = pthread_detach(thrd->handle);
+	int32_t error = pthread_detach(thread->handle);
 	if (error)
 	{
-		thrd->status = prev;
+		thread->status = prev;
 		return error;
 	}
+
+	free(thread);
 
 	return MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
+void mthread_destroy(mthread_t *thread)
+{
+	if (!thread || thread->status != MTHREAD_STATUS_DETACHED
+		|| thread->status != MTHREAD_STATUS_JOINED
+		|| thread->status != MTHREAD_STATUS_INACTIVE)
+		free(thread);
+}
+
+MTHREAD_API MT_LEAF
 void mthread_exit(void *retval)
 {
 	pthread_exit(retval);
 }
 
-MTHREAD_API
+MTHREAD_API MT_LEAF
 mthread_result_t mthread_yield(void)
 {
 	return (sched_yield() == 0) ? MTHREAD_SUCCESS : MTHREAD_FAILURE;
 }
 
-MTHREAD_API
+MTHREAD_API MT_LEAF
 uint64_t mthread_nsleep(uint64_t ns)
 {
 	struct timespec ts = {
@@ -155,27 +168,27 @@ uint64_t mthread_nsleep(uint64_t ns)
 	return 0;
 }
 
-MTHREAD_API
+MTHREAD_API MT_LEAF
 uint64_t mthread_sleep(uint64_t s)
 {
 	return sleep(s);
 }
 
-MTHREAD_API
+MTHREAD_API MT_LEAF
 mthread_handle_t mthread_self(void)
 {
-	return (mthread_handle_t)((uintptr_t) pthread_self());
+	return (mthread_handle_t)(pthread_self());
 }
 
 MTHREAD_API
-mthread_result_t mthread_attr_init(mthread_attr_t *attr)
+mthread_result_t mthread_attr_init(mthread_attr_t **attr)
 {
 	if (!attr)
 		return MTHREAD_FAILURE;
 
-	MTHREAD_CAST_NEW(attr, struct mthread_attr_s *, attrib);
-	memset(attrib, 0, MTHREAD_SIZEOF_MTHREAD_ATTR);
-	attrib->detachstate = MTHREAD_CREATE_JOINABLE;
+	*attr = calloc(1, sizeof(struct mthread_attr));
+	if (!*attr)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
 
 	return MTHREAD_SUCCESS;
 }
@@ -187,13 +200,11 @@ mthread_result_t mthread_attr_setdetachstate(mthread_attr_t *attr,
 	if (!attr)
 		return MTHREAD_FAILURE;
 
-	MTHREAD_CAST_NEW(attr, struct mthread_attr_s *, attrib);
-
 	switch (detachstate)
 	{
 		case MTHREAD_CREATE_JOINABLE:
 		case MTHREAD_CREATE_DETACHED:
-			attrib->detachstate = detachstate;
+			attr->detachstate = detachstate;
 			break;
 		default:
 			return MTHREAD_FAILURE;
@@ -209,7 +220,7 @@ mthread_result_t mthread_attr_getdetachstate(mthread_attr_t *MTHREAD_RESTRICT at
 	if (!attr || !detachstate)
 		return MTHREAD_FAILURE;
 
-	*detachstate = ((struct mthread_attr_s *) attr)->detachstate;
+	*detachstate = attr->detachstate;
 
 	return MTHREAD_SUCCESS;
 }
@@ -221,7 +232,7 @@ mthread_result_t mthread_attr_setstacksize(mthread_attr_t *attr,
 	if (!attr)
 		return MTHREAD_FAILURE;
 
-	((struct mthread_attr_s *) attr)->stacksize = stacksize;
+	attr->stacksize = stacksize;
 
 	return MTHREAD_SUCCESS;
 }
@@ -233,7 +244,7 @@ mthread_result_t mthread_attr_getstacksize(mthread_attr_t *MTHREAD_RESTRICT attr
 	if (!attr || !stacksize)
 		return MTHREAD_FAILURE;
 
-	*stacksize = ((struct mthread_attr_s *) attr)->stacksize;
+	*stacksize = attr->stacksize;
 
 	return MTHREAD_SUCCESS;
 }
@@ -246,8 +257,8 @@ mthread_result_t mthread_attr_setstack(mthread_attr_t *MTHREAD_RESTRICT attr,
 	if (!attr || !stackaddr)
 		return MTHREAD_FAILURE;
 
-	((struct mthread_attr_s *) attr)->stackaddr = stackaddr;
-	((struct mthread_attr_s *) attr)->stacksize = stacksize;
+	attr->stackaddr = stackaddr;
+	attr->stacksize = stacksize;
 
 	return MTHREAD_SUCCESS;
 }
@@ -260,8 +271,8 @@ mthread_result_t mthread_attr_getstack(mthread_attr_t *MTHREAD_RESTRICT attr,
 	if (!attr || !stackaddr || !stacksize)
 		return MTHREAD_FAILURE;
 
-	*stackaddr = ((struct mthread_attr_s *) attr)->stackaddr;
-	*stacksize = ((struct mthread_attr_s *) attr)->stacksize;
+	*stackaddr = attr->stackaddr;
+	*stacksize = attr->stacksize;
 
 	return MTHREAD_SUCCESS;
 }
@@ -273,7 +284,7 @@ mthread_result_t mthread_attr_setguardsize(mthread_attr_t *attr,
 	if (!attr)
 		return MTHREAD_FAILURE;
 
-	((struct mthread_attr_s *) attr)->guardsize = guardsize;
+	attr->guardsize = guardsize;
 
 	return MTHREAD_SUCCESS;
 }
@@ -285,7 +296,7 @@ mthread_result_t mthread_attr_getguardsize(mthread_attr_t *MTHREAD_RESTRICT attr
 	if (!attr || !guardsize)
 		return MTHREAD_FAILURE;
 
-	*guardsize = ((struct mthread_attr_s *) attr)->guardsize;
+	*guardsize = attr->guardsize;
 
 	return MTHREAD_SUCCESS;
 }

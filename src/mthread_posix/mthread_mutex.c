@@ -2,32 +2,32 @@
 #define _POSIX_C_SOURCE (200809L)
 
 #include "handles.h"
+#include "mthread/mthread.h"
 #include "mthread/attr.h"
 #include "mthread/types.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <pthread.h>
 
 MTHREAD_API
-mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
+mthread_result_t mthread_mutex_init(mthread_mutex_t **MTHREAD_RESTRICT mutex,
 				    const mthread_mutexattr_t *MTHREAD_RESTRICT attr)
 {
 	if (!mutex)
 		return MTHREAD_FAILURE;
 
-	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
+	mthread_mutex_t *mtx = malloc(sizeof(struct mthread_mutex));
+	if (!mutex)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
 
 	pthread_mutexattr_t pattr = {0};
 	pthread_mutexattr_t *pattr_ptr = NULL;
 	int32_t error = MTHREAD_SUCCESS;
 
-	const struct mthread_mutexattr_s *attrib = NULL;
-
 	if (attr)
 	{
-		MTHREAD_CAST_NEW(attr, struct mthread_mutexattr_s *, attrib);
-
 		error = pthread_mutexattr_init(&pattr);
 		if (error)
 			return error;
@@ -35,7 +35,7 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 		pattr_ptr = &pattr;
 
 		int32_t attr_field = 0;
-		switch(attrib->type)
+		switch(attr->type)
 		{
 			case MTHREAD_MUTEX_NORMAL:
 				attr_field = PTHREAD_MUTEX_NORMAL;
@@ -54,7 +54,7 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 		if (error)
 			goto cleanup;
 
-		switch(attrib->pshared)
+		switch(attr->pshared)
 		{
 			case MTHREAD_PROCESS_PRIVATE:
 				attr_field = PTHREAD_PROCESS_PRIVATE;
@@ -70,7 +70,7 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 		if (error)
 			goto cleanup;
 
-		switch(attrib->robustness)
+		switch(attr->robustness)
 		{
 			case MTHREAD_MUTEX_STALLED:
 				attr_field = PTHREAD_MUTEX_STALLED;
@@ -93,10 +93,12 @@ mthread_result_t mthread_mutex_init(mthread_mutex_t *MTHREAD_RESTRICT mutex,
 
 	mtx->init = MTHREAD_TRUE;
 
+	*mutex = mtx;
+
 	cleanup:
 	pthread_mutexattr_destroy(pattr_ptr);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -105,14 +107,12 @@ mthread_result_t mthread_mutex_lock(mthread_mutex_t *mutex)
 	if (!mutex)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
-
-	if (!mtx->init)
+	if (!mutex->init)
 		return MTHREAD_ERROR_NOT_INITIALIZED;
 
-	int32_t error = pthread_mutex_lock(&mtx->handle);
+	int32_t error = pthread_mutex_lock(&mutex->handle);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -121,13 +121,12 @@ mthread_result_t mthread_mutex_trylock(mthread_mutex_t *mutex)
 	if (!mutex)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
-	if (!mtx->init)
+	if (!mutex->init)
 		return MTHREAD_ERROR_NOT_INITIALIZED;
 
-	int32_t error = pthread_mutex_trylock(&mtx->handle);
+	int32_t error = pthread_mutex_trylock(&mutex->handle);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -136,13 +135,12 @@ mthread_result_t mthread_mutex_unlock(mthread_mutex_t *mutex)
 	if (!mutex)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
-	if (!mtx->init)
+	if (!mutex->init)
 		return MTHREAD_ERROR_NOT_INITIALIZED;
 
-	int32_t error = pthread_mutex_unlock(&mtx->handle);
+	int32_t error = pthread_mutex_unlock(&mutex->handle);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
@@ -151,22 +149,24 @@ mthread_result_t mthread_mutex_destroy(mthread_mutex_t *mutex)
 	if (!mutex)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(mutex, struct mthread_mutex_s *, mtx);
-	if (!mtx->init)
+	if (!mutex->init)
 		return MTHREAD_ERROR_NOT_INITIALIZED;
 
-	int32_t error = pthread_mutex_destroy(&mtx->handle);
+	int32_t error = pthread_mutex_destroy(&mutex->handle);
+	free(mutex);
 
-	MTHREAD_COND_RET(error);
+	return error ? error : MTHREAD_SUCCESS;
 }
 
 MTHREAD_API
-mthread_result_t mthread_mutexattr_init(mthread_mutexattr_t *attr)
+mthread_result_t mthread_mutexattr_init(mthread_mutexattr_t **attr)
 {
 	if (!attr)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	memset(attr, 0, MTHREAD_SIZEOF_MTHREAD_MUTEXATTR);
+	*attr = calloc(1, sizeof(struct mthread_mutexattr));
+	if (!*attr)
+		return MTHREAD_ERROR_NOT_INITIALIZED;
 
 	return MTHREAD_SUCCESS;
 }
@@ -178,14 +178,12 @@ mthread_result_t mthread_mutexattr_settype(mthread_mutexattr_t *attr,
 	if (!attr)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	MTHREAD_CAST_NEW(attr, struct mthread_mutexattr_s *, attrib);
-
 	switch (type)
 	{
 		case MTHREAD_MUTEX_NORMAL:
 		case MTHREAD_MUTEX_RECURSIVE:
 		case MTHREAD_MUTEX_ERRORCHECK:
-			attrib->type = type;
+			attr->type = type;
 			break;
 		default:
 			return MTHREAD_ERROR_INVALID_ARGUMENT;
@@ -201,7 +199,7 @@ mthread_result_t mthread_mutexattr_gettype(mthread_mutexattr_t *MTHREAD_RESTRICT
 	if (!attr)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	*type = ((struct mthread_mutexattr_s *) attr)->type;
+	*type = attr->type;
 
 	return MTHREAD_SUCCESS;
 }
@@ -217,7 +215,7 @@ mthread_result_t mthread_mutexattr_setpshared(mthread_mutexattr_t *attr,
 	{
 		case MTHREAD_PROCESS_PRIVATE:
 		case MTHREAD_PROCESS_SHARED:
-			((struct mthread_mutexattr_s *) attr)->pshared = pshared;
+			attr->pshared = pshared;
 			break;
 		default:
 			return MTHREAD_ERROR_INVALID_ARGUMENT;
@@ -233,7 +231,7 @@ mthread_result_t mthread_mutexattr_getpshared(mthread_mutexattr_t *MTHREAD_RESTR
 	if (!attr || !pshared)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	*pshared = ((struct mthread_mutexattr_s *) attr)->pshared;
+	*pshared = attr->pshared;
 
 	return MTHREAD_SUCCESS;
 }
@@ -249,7 +247,7 @@ mthread_result_t mthread_mutexattr_setrobust(mthread_mutexattr_t *attr,
 	{
 		case MTHREAD_MUTEX_STALLED:
 		case MTHREAD_MUTEX_ROBUST:
-			((struct mthread_mutexattr_s *) attr)->robustness = robustness;
+			attr->robustness = robustness;
 			break;
 		default:
 			return MTHREAD_ERROR_INVALID_ARGUMENT;
@@ -265,7 +263,7 @@ mthread_result_t mthread_mutexattr_getrobust(mthread_mutexattr_t *MTHREAD_RESTRI
 	if (!attr || !robustness)
 		return MTHREAD_ERROR_INVALID_ARGUMENT;
 
-	*robustness = ((struct mthread_mutexattr_s *) attr)->robustness;
+	*robustness = attr->robustness;
 
 	return MTHREAD_SUCCESS;
 }
